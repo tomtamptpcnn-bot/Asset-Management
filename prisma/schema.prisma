@@ -1,0 +1,332 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AssetType {
+  CASH
+  BANK_DEPOSIT
+  GOLD
+  STOCK
+  FUND
+  CRYPTO
+  LIFE_INSURANCE
+  PROPERTY
+  OTHER
+}
+
+enum LiabilityType {
+  SHORT_TERM
+  LONG_TERM
+  CREDIT_CARD
+  PERSONAL_LOAN
+  MORTGAGE
+  AUTO_LOAN
+  INSTALLMENT
+  INFORMAL_OTHER
+}
+
+enum LiabilityStatus {
+  ACTIVE
+  PAID_OFF
+  OVERDUE
+  RESTRUCTURED
+}
+
+enum PolicyStatus {
+  ACTIVE
+  LAPSED
+  MATURED
+  CANCELLED
+}
+
+enum CashflowCategory {
+  SALARY
+  BONUS
+  SIDE_INCOME
+  FOOD
+  TRANSPORT
+  DEBT_PAYMENT
+  INSURANCE
+  SHOPPING
+  HOUSING
+  HEALTH
+  EDUCATION
+  OTHER
+}
+
+enum PriceHistorySource {
+  MANUAL
+  IMPORTED
+  API
+}
+
+enum BudgetItemType {
+  INCOME
+  EXPENSE
+}
+
+model User {
+  id                String            @id @default(cuid())
+  name              String?
+  email             String            @unique
+  emailVerified     DateTime?
+  image             String?
+  passwordHash      String?
+  accounts          Account[]
+  sessions          Session[]
+  assets            Asset[]
+  liabilities       Liability[]
+  incomes           Income[]
+  expenses          Expense[]
+  defaultCashflowItems DefaultCashflowItem[]
+  monthlyBudgetItems MonthlyBudgetItem[]
+  insurancePolicies InsurancePolicy[]
+  monthlySnapshots  MonthlySnapshot[]
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Asset {
+  id                 String            @id @default(cuid())
+  userId             String
+  name               String
+  type               AssetType
+  purchasedAt        DateTime?
+  quantity           Decimal?          @db.Decimal(20, 8)
+  purchasePrice      Decimal           @db.Decimal(18, 2)
+  currentValue       Decimal           @db.Decimal(18, 2)
+  note               String?
+  attachmentUrl      String?
+  goldWeightBaht     Decimal?          @db.Decimal(10, 4)
+  goldWeightGram     Decimal?          @db.Decimal(10, 4)
+  unitPurchasePrice  Decimal?          @db.Decimal(18, 2)
+  marketUnitPrice    Decimal?          @db.Decimal(18, 2)
+  symbol             String?
+  averageBuyPrice    Decimal?          @db.Decimal(18, 8)
+  currentPrice       Decimal?          @db.Decimal(18, 8)
+  dividendsReceived  Decimal?          @db.Decimal(18, 2)
+  targetValue        Decimal?          @db.Decimal(18, 2)
+  lots               AssetLot[]
+  priceHistories     PriceHistory[]
+  insurancePolicy    InsurancePolicy?
+  user               User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@index([userId, type])
+}
+
+model AssetLot {
+  id                 String   @id @default(cuid())
+  assetId            String
+  purchasedAt        DateTime
+  quantity           Decimal  @db.Decimal(20, 8)
+  unitPurchasePrice  Decimal  @db.Decimal(18, 8)
+  purchaseAmount     Decimal  @db.Decimal(18, 2)
+  currentUnitPrice   Decimal? @db.Decimal(18, 8)
+  currentValue       Decimal? @db.Decimal(18, 2)
+  note               String?
+  attachmentUrl      String?
+  goldWeightBaht     Decimal? @db.Decimal(10, 4)
+  goldWeightGram     Decimal? @db.Decimal(10, 4)
+  dividendsReceived  Decimal? @db.Decimal(18, 2)
+  asset              Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([assetId, purchasedAt])
+}
+
+model InsurancePolicy {
+  id              String       @id @default(cuid())
+  userId          String
+  assetId         String?      @unique
+  policyName      String
+  insurer         String
+  premiumAmount   Decimal      @db.Decimal(18, 2)
+  premiumFrequency String
+  surrenderValue  Decimal      @db.Decimal(18, 2)
+  coverageAmount  Decimal      @db.Decimal(18, 2)
+  startedAt       DateTime
+  maturityAt      DateTime?
+  status          PolicyStatus @default(ACTIVE)
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  asset           Asset?       @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model Liability {
+  id                    String             @id @default(cuid())
+  userId                String
+  name                  String
+  creditor              String
+  type                  LiabilityType
+  totalAmount           Decimal            @db.Decimal(18, 2)
+  remainingBalance      Decimal            @db.Decimal(18, 2)
+  interestRatePerYear   Decimal?           @db.Decimal(8, 4)
+  interestRatePerMonth  Decimal?           @db.Decimal(8, 4)
+  monthlyPayment        Decimal            @db.Decimal(18, 2)
+  totalInstallments     Int?
+  paidInstallments      Int                @default(0)
+  dueDate               DateTime?
+  status                LiabilityStatus    @default(ACTIVE)
+  payments              LiabilityPayment[]
+  user                  User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  @@index([userId, type, status])
+}
+
+model LiabilityPayment {
+  id          String    @id @default(cuid())
+  liabilityId String
+  paidAt      DateTime
+  amount      Decimal   @db.Decimal(18, 2)
+  principal   Decimal?  @db.Decimal(18, 2)
+  interest    Decimal?  @db.Decimal(18, 2)
+  note        String?
+  liability   Liability @relation(fields: [liabilityId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+}
+
+model Income {
+  id          String           @id @default(cuid())
+  userId      String
+  name        String
+  category    CashflowCategory
+  amount      Decimal          @db.Decimal(18, 2)
+  receivedAt  DateTime
+  isRecurring Boolean          @default(false)
+  note        String?
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([userId, receivedAt])
+}
+
+model Expense {
+  id          String           @id @default(cuid())
+  userId      String
+  name        String
+  category    CashflowCategory
+  amount      Decimal          @db.Decimal(18, 2)
+  spentAt      DateTime
+  isRecurring Boolean          @default(false)
+  note        String?
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([userId, spentAt])
+}
+
+model DefaultCashflowItem {
+  id        String           @id @default(cuid())
+  userId    String
+  name      String
+  type      BudgetItemType
+  category  CashflowCategory
+  amount    Decimal          @db.Decimal(18, 2)
+  dueDay    Int?
+  isActive  Boolean          @default(true)
+  note      String?
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  monthlyItems MonthlyBudgetItem[]
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([userId, type, isActive])
+}
+
+model MonthlyBudgetItem {
+  id            String               @id @default(cuid())
+  userId        String
+  defaultItemId String?
+  month         DateTime
+  name          String
+  type          BudgetItemType
+  category      CashflowCategory
+  amount        Decimal              @db.Decimal(18, 2)
+  dueDate       DateTime?
+  isPaid        Boolean              @default(false)
+  paidAt        DateTime?
+  note          String?
+  user          User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  defaultItem   DefaultCashflowItem? @relation(fields: [defaultItemId], references: [id], onDelete: SetNull)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  @@index([userId, month, type, isPaid])
+}
+
+model PriceHistory {
+  id        String             @id @default(cuid())
+  assetId   String
+  price     Decimal            @db.Decimal(18, 8)
+  value     Decimal            @db.Decimal(18, 2)
+  source    PriceHistorySource @default(MANUAL)
+  pricedAt  DateTime
+  asset     Asset              @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  createdAt DateTime           @default(now())
+
+  @@index([assetId, pricedAt])
+}
+
+model MonthlySnapshot {
+  id              String   @id @default(cuid())
+  userId          String
+  month           DateTime
+  totalAssets     Decimal  @db.Decimal(18, 2)
+  totalLiabilities Decimal @db.Decimal(18, 2)
+  netWorth        Decimal  @db.Decimal(18, 2)
+  totalIncome     Decimal  @db.Decimal(18, 2)
+  totalExpense    Decimal  @db.Decimal(18, 2)
+  cashFlow        Decimal  @db.Decimal(18, 2)
+  portfolioGrowth Decimal? @db.Decimal(8, 4)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+
+  @@unique([userId, month])
+}
