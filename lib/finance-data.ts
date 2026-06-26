@@ -226,6 +226,7 @@ export function getCashflowCategoryLabel(category: string) {
     INSURANCE: "ประกัน",
     SHOPPING: "ช้อปปิ้ง",
     HOUSING: "ที่อยู่อาศัย",
+    FAMILY: "ครอบครัว",
     HEALTH: "สุขภาพ",
     EDUCATION: "การศึกษา",
     OTHER: "อื่น ๆ"
@@ -244,11 +245,32 @@ export function getCashflowCategoryValue(label: string) {
     "ประกัน": "INSURANCE",
     "ช้อปปิ้ง": "SHOPPING",
     "ที่อยู่อาศัย": "HOUSING",
+    "ครอบครัว": "FAMILY",
     "สุขภาพ": "HEALTH",
     "การศึกษา": "EDUCATION",
     "อื่น ๆ": "OTHER"
   };
-  return values[label] ?? label;
+  return values[label] ?? (isCashflowCategory(label) ? label : "OTHER");
+}
+
+export const cashflowCategoryOptions = [
+  { value: "SALARY", label: "เงินเดือน" },
+  { value: "BONUS", label: "โบนัส/ปันผล" },
+  { value: "SIDE_INCOME", label: "รายได้เสริม" },
+  { value: "FOOD", label: "อาหาร" },
+  { value: "TRANSPORT", label: "เดินทาง" },
+  { value: "DEBT_PAYMENT", label: "ค่าผ่อน" },
+  { value: "INSURANCE", label: "ประกัน" },
+  { value: "SHOPPING", label: "ช้อปปิ้ง" },
+  { value: "HOUSING", label: "ที่อยู่อาศัย" },
+  { value: "FAMILY", label: "ครอบครัว" },
+  { value: "HEALTH", label: "สุขภาพ" },
+  { value: "EDUCATION", label: "การศึกษา" },
+  { value: "OTHER", label: "อื่น ๆ" }
+] as const;
+
+function isCashflowCategory(value: string) {
+  return cashflowCategoryOptions.some((option) => option.value === value);
 }
 
 export function getCurrentMonthKey() {

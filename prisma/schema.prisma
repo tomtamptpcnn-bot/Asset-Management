@@ -55,6 +55,7 @@ enum CashflowCategory {
   INSURANCE
   SHOPPING
   HOUSING
+  FAMILY
   HEALTH
   EDUCATION
   OTHER

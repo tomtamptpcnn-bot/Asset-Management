@@ -1,0 +1,1 @@
+ALTER TYPE "CashflowCategory" ADD VALUE IF NOT EXISTS 'FAMILY';

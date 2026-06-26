@@ -11,7 +11,7 @@ import {
   saveMonthlyBudgetItem,
   toggleMonthlyBudgetItemPaid
 } from "@/lib/finance-actions";
-import { getCurrentMonthKey, getMonthlyBudget } from "@/lib/finance-data";
+import { cashflowCategoryOptions, getCurrentMonthKey, getMonthlyBudget } from "@/lib/finance-data";
 import { type BudgetItemType, type MonthlyBudgetItem } from "@/lib/mock-data";
 import { formatCurrency } from "@/lib/utils";
 
@@ -198,7 +198,17 @@ function CashflowForm({
         </select>
       )}
       <Input name="name" placeholder="ชื่อรายการ" required />
-      <Input name="category" placeholder="หมวดหมู่ เช่น อาหาร" defaultValue={fixedType === "INCOME" ? "รายได้เสริม" : "อื่น ๆ"} />
+      <select
+        name="category"
+        defaultValue={fixedType === "INCOME" ? "SIDE_INCOME" : "OTHER"}
+        className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+      >
+        {cashflowCategoryOptions.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
       <Input name="amount" type="number" placeholder="จำนวนเงิน" required />
       {includeDueDay ? <Input name="dueDay" type="number" min={1} max={31} placeholder="วันที่ประจำเดือน" /> : <Input name="dueDate" type="date" defaultValue={`${month}-25`} />}
       <Button className="sm:col-span-2"><Plus className="h-4 w-4" />เพิ่มรายการ</Button>
