@@ -1,7 +1,8 @@
 "use client";
 
 import { Pencil, Plus, Save, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -16,15 +17,26 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/toast-manager";
 import { cashflowCategoryOptions } from "@/lib/finance-data";
-import { deleteDefaultCashflowItem, saveDefaultCashflowItem } from "@/lib/finance-actions";
+import { deleteDefaultCashflowItemById, saveDefaultCashflowItem } from "@/lib/finance-actions";
 import { type BudgetItemType, type DefaultCashflowItem } from "@/lib/mock-data";
 import { formatCurrency } from "@/lib/utils";
 
 export function DefaultCashflowManager({ defaults, month }: { defaults: DefaultCashflowItem[]; month: string }) {
+  const [rows, setRows] = useState(defaults);
   const [editing, setEditing] = useState<DefaultCashflowItem | null>(null);
   const formKey = editing?.id ?? "create";
   const categoryValue = useMemo(() => getCategoryValue(editing?.category, editing?.type), [editing]);
+
+  useEffect(() => {
+    setRows(defaults);
+  }, [defaults]);
+
+  function handleDeleted(id: string) {
+    setRows((current) => current.filter((item) => item.id !== id));
+    if (editing?.id === id) setEditing(null);
+  }
 
   return (
     <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
@@ -35,8 +47,8 @@ export function DefaultCashflowManager({ defaults, month }: { defaults: DefaultC
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-3 md:grid-cols-2">
-            {defaults.length ? (
-              defaults.map((item) => <DefaultCashflowCard key={item.id} item={item} month={month} onEdit={() => setEditing(item)} />)
+            {rows.length ? (
+              rows.map((item) => <DefaultCashflowCard key={item.id} item={item} onDeleted={handleDeleted} onEdit={() => setEditing(item)} />)
             ) : (
               <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground md:col-span-2">
                 ยังไม่มีรายการ default
@@ -96,8 +108,22 @@ export function DefaultCashflowManager({ defaults, month }: { defaults: DefaultC
   );
 }
 
-function DefaultCashflowCard({ item, month, onEdit }: { item: DefaultCashflowItem; month: string; onEdit: () => void }) {
-  const deleteFormId = `delete-default-${item.id}`;
+function DefaultCashflowCard({ item, onDeleted, onEdit }: { item: DefaultCashflowItem; onDeleted: (id: string) => void; onEdit: () => void }) {
+  const router = useRouter();
+  const { showToast } = useToast();
+
+  async function handleDelete() {
+    const result = await deleteDefaultCashflowItemById(item.id);
+
+    showToast({
+      tone: result.ok ? "success" : "error",
+      title: result.ok ? "ลบรายการ default สำเร็จ" : "ลบรายการ default ไม่สำเร็จ",
+      description: result.ok ? undefined : result.message
+    });
+
+    if (result.ok) onDeleted(item.id);
+    router.refresh();
+  }
 
   return (
     <div className="rounded-lg border p-3">
@@ -116,10 +142,6 @@ function DefaultCashflowCard({ item, month, onEdit }: { item: DefaultCashflowIte
           <Pencil className="h-4 w-4" />
           แก้ไข
         </Button>
-        <form id={deleteFormId} action={deleteDefaultCashflowItem}>
-          <input type="hidden" name="month" value={month} />
-          <input type="hidden" name="id" value={item.id} />
-        </form>
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button type="button" size="sm" variant="destructive" className="flex-1">ลบ</Button>
@@ -134,7 +156,7 @@ function DefaultCashflowCard({ item, month, onEdit }: { item: DefaultCashflowIte
             <AlertDialogFooter>
               <AlertDialogCancel asChild><Button variant="outline">ยกเลิก</Button></AlertDialogCancel>
               <AlertDialogAction asChild>
-                <Button type="submit" form={deleteFormId} variant="destructive">ยืนยันลบ</Button>
+                <Button type="button" variant="destructive" onClick={() => void handleDelete()}>ยืนยันลบ</Button>
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

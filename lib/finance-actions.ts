@@ -247,6 +247,18 @@ export async function deleteDefaultCashflowItem(formData: FormData) {
   redirect(withToast(redirectPath, "success", "ลบรายการ default สำเร็จ"));
 }
 
+export async function deleteDefaultCashflowItemById(id: string): Promise<ActionResult> {
+  if (!hasDatabaseUrl()) return { ok: false, message: "ยังไม่ได้ตั้งค่า DATABASE_URL" };
+
+  try {
+    await prisma.defaultCashflowItem.delete({ where: { id } });
+    revalidatePath("/income-expense");
+    return { ok: true, message: "ลบรายการ default สำเร็จ" };
+  } catch (error) {
+    return { ok: false, message: getErrorMessage(error) };
+  }
+}
+
 export async function saveMonthlyBudgetItem(formData: FormData) {
   const month = String(formData.get("month") ?? "");
   const redirectPath = `/income-expense?month=${month}`;
