@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { getCashflowCategoryLabel, getCashflowCategoryValue, getDemoUserId, hasDatabaseUrl, monthKeyToDate } from "@/lib/finance-data";
 import { getMarketQuote } from "@/lib/market-prices";
 import { prisma } from "@/lib/prisma";
-import { type DefaultCashflowItem } from "@/lib/mock-data";
+import { type DefaultCashflowItem, type MonthlyBudgetItem } from "@/lib/mock-data";
 
 type ActionResult = {
   ok: boolean;
@@ -15,6 +15,10 @@ type ActionResult = {
 
 type DefaultCashflowActionResult = ActionResult & {
   item?: DefaultCashflowItem;
+};
+
+type MonthlyBudgetActionResult = ActionResult & {
+  item?: MonthlyBudgetItem;
 };
 
 type AssetLotInput = {
@@ -332,6 +336,39 @@ export async function saveMonthlyBudgetItem(formData: FormData) {
   redirect(withToast(redirectPath, "success", "เพิ่มรายการรายเดือนสำเร็จ"));
 }
 
+export async function saveMonthlyBudgetItemInline(formData: FormData): Promise<MonthlyBudgetActionResult> {
+  const month = String(formData.get("month") ?? "");
+  const id = String(formData.get("id") ?? "");
+  if (!hasDatabaseUrl()) return { ok: false, message: "ยังไม่ได้ตั้งค่า DATABASE_URL" };
+
+  const userId = await getDemoUserId();
+  const data = {
+    userId,
+    month: monthKeyToDate(month),
+    name: String(formData.get("name") ?? ""),
+    type: String(formData.get("type") ?? "EXPENSE") as BudgetItemType,
+    category: getCashflowCategoryValue(String(formData.get("category") ?? "OTHER")) as CashflowCategory,
+    amount: numberOrZero(formData.get("amount")),
+    dueDate: nullableString(formData.get("dueDate")) ? new Date(String(formData.get("dueDate"))) : null,
+    note: nullableString(formData.get("note"))
+  };
+
+  try {
+    const row = id
+      ? await prisma.monthlyBudgetItem.update({ where: { id }, data })
+      : await prisma.monthlyBudgetItem.create({ data });
+
+    revalidatePath("/income-expense");
+    return {
+      ok: true,
+      message: id ? "แก้ไขรายการรายเดือนสำเร็จ" : "เพิ่มรายการรายเดือนสำเร็จ",
+      item: mapMonthlyBudgetItem(row, month)
+    };
+  } catch (error) {
+    return { ok: false, message: getErrorMessage(error) };
+  }
+}
+
 export async function createMonthlyItemsFromDefaults(formData: FormData) {
   const month = String(formData.get("month") ?? "");
   const redirectPath = `/income-expense?month=${month}`;
@@ -394,6 +431,29 @@ export async function toggleMonthlyBudgetItemPaid(formData: FormData) {
   redirect(withToast(redirectPath, "success", isPaid ? "บันทึกว่าทำรายการแล้ว" : "บันทึกว่ายังไม่เรียบร้อย"));
 }
 
+export async function toggleMonthlyBudgetItemPaidById(id: string, isPaid: boolean, month: string): Promise<MonthlyBudgetActionResult> {
+  if (!hasDatabaseUrl()) return { ok: false, message: "ยังไม่ได้ตั้งค่า DATABASE_URL" };
+
+  try {
+    const row = await prisma.monthlyBudgetItem.update({
+      where: { id },
+      data: {
+        isPaid,
+        paidAt: isPaid ? new Date() : null
+      }
+    });
+
+    revalidatePath("/income-expense");
+    return {
+      ok: true,
+      message: isPaid ? "บันทึกว่าทำรายการแล้ว" : "บันทึกว่ายังไม่เรียบร้อย",
+      item: mapMonthlyBudgetItem(row, month)
+    };
+  } catch (error) {
+    return { ok: false, message: getErrorMessage(error) };
+  }
+}
+
 export async function deleteMonthlyBudgetItem(formData: FormData) {
   const month = String(formData.get("month") ?? "");
   const id = String(formData.get("id") ?? "");
@@ -408,6 +468,48 @@ export async function deleteMonthlyBudgetItem(formData: FormData) {
 
   revalidatePath("/income-expense");
   redirect(withToast(redirectPath, "success", "ลบรายการรายเดือนสำเร็จ"));
+}
+
+export async function deleteMonthlyBudgetItemById(id: string): Promise<ActionResult> {
+  if (!hasDatabaseUrl()) return { ok: false, message: "ยังไม่ได้ตั้งค่า DATABASE_URL" };
+
+  try {
+    await prisma.monthlyBudgetItem.delete({ where: { id } });
+    revalidatePath("/income-expense");
+    return { ok: true, message: "ลบรายการรายเดือนสำเร็จ" };
+  } catch (error) {
+    return { ok: false, message: getErrorMessage(error) };
+  }
+}
+
+function mapMonthlyBudgetItem(
+  row: {
+    id: string;
+    defaultItemId: string | null;
+    name: string;
+    type: BudgetItemType;
+    category: CashflowCategory;
+    amount: { toNumber(): number } | number;
+    dueDate: Date | null;
+    isPaid: boolean;
+    paidAt: Date | null;
+    note: string | null;
+  },
+  month: string
+): MonthlyBudgetItem {
+  return {
+    id: row.id,
+    defaultItemId: row.defaultItemId ?? undefined,
+    month,
+    name: row.name,
+    type: row.type,
+    category: getCashflowCategoryLabel(row.category),
+    amount: typeof row.amount === "number" ? row.amount : row.amount.toNumber(),
+    dueDate: row.dueDate?.toISOString().slice(0, 10),
+    isPaid: row.isPaid,
+    paidAt: row.paidAt?.toISOString().slice(0, 10),
+    note: row.note ?? undefined
+  };
 }
 
 function parseLots(value: string): AssetLotInput[] {

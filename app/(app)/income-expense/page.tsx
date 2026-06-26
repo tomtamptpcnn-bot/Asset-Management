@@ -1,18 +1,14 @@
-import { ArrowDown, ArrowUp, CalendarDays, ListPlus, Plus } from "lucide-react";
+import { ArrowDown, ArrowUp, CalendarDays, ListPlus } from "lucide-react";
 import { DefaultCashflowManager } from "@/components/default-cashflow-manager";
+import { MonthlyBudgetManager } from "@/components/monthly-budget-manager";
 import { MonthlyCashflowChart } from "@/components/charts/finance-charts";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import {
-  createMonthlyItemsFromDefaults,
-  deleteMonthlyBudgetItem,
-  saveMonthlyBudgetItem,
-  toggleMonthlyBudgetItemPaid
-} from "@/lib/finance-actions";
-import { cashflowCategoryOptions, getCurrentMonthKey, getMonthlyBudget } from "@/lib/finance-data";
-import { type BudgetItemType, type MonthlyBudgetItem } from "@/lib/mock-data";
+import { createMonthlyItemsFromDefaults } from "@/lib/finance-actions";
+import { getCurrentMonthKey, getMonthlyBudget } from "@/lib/finance-data";
+import { type MonthlyBudgetItem } from "@/lib/mock-data";
 import { formatCurrency } from "@/lib/utils";
 
 export default async function IncomeExpensePage({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
@@ -71,8 +67,8 @@ export default async function IncomeExpensePage({ searchParams }: { searchParams
       </Card>
 
       <section className="grid gap-4 xl:grid-cols-2">
-        <MonthlyItemCard title="รายรับเดือนนี้" type="INCOME" month={month} items={incomeItems} />
-        <MonthlyItemCard title="รายจ่ายเดือนนี้" type="EXPENSE" month={month} items={expenseItems} />
+        <MonthlyBudgetManager title="รายรับเดือนนี้" type="INCOME" month={month} items={incomeItems} />
+        <MonthlyBudgetManager title="รายจ่ายเดือนนี้" type="EXPENSE" month={month} items={expenseItems} />
       </section>
 
       <Card>
@@ -94,96 +90,6 @@ export default async function IncomeExpensePage({ searchParams }: { searchParams
         <CardContent><MonthlyCashflowChart /></CardContent>
       </Card>
     </div>
-  );
-}
-
-function MonthlyItemCard({ title, type, month, items }: { title: string; type: BudgetItemType; month: string; items: MonthlyBudgetItem[] }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{type === "INCOME" ? "ติ๊กเมื่อได้รับเงินแล้ว" : "ติ๊กเมื่อจ่ายแล้ว"}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <CashflowForm action={saveMonthlyBudgetItem} month={month} fixedType={type} />
-        <div className="space-y-3">
-          {items.length ? items.map((item) => <BudgetRow key={item.id} item={item} month={month} />) : (
-            <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">ยังไม่มีรายการในเดือนนี้</div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function BudgetRow({ item, month }: { item: MonthlyBudgetItem; month: string }) {
-  return (
-    <div className="rounded-lg border p-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate font-medium">{item.name}</p>
-          <p className="text-sm text-muted-foreground">{item.category} · {item.dueDate ?? month}</p>
-        </div>
-        <p className={item.type === "INCOME" ? "font-semibold text-emerald-600 dark:text-emerald-400" : "font-semibold text-red-600 dark:text-red-400"}>
-          {formatCurrency(item.amount)}
-        </p>
-      </div>
-      <div className="mt-3 flex items-center justify-between gap-2">
-        <form action={toggleMonthlyBudgetItemPaid}>
-          <input type="hidden" name="month" value={month} />
-          <input type="hidden" name="id" value={item.id} />
-          <input type="hidden" name="isPaid" value={String(!item.isPaid)} />
-          <Button variant={item.isPaid ? "secondary" : "outline"} size="sm" className="h-9">
-            <input readOnly checked={item.isPaid} type="checkbox" className="h-4 w-4 accent-current" />
-            {item.isPaid ? "เรียบร้อยแล้ว" : "ยังไม่เรียบร้อย"}
-          </Button>
-        </form>
-        <form action={deleteMonthlyBudgetItem}>
-          <input type="hidden" name="month" value={month} />
-          <input type="hidden" name="id" value={item.id} />
-          <Button variant="ghost" size="sm">ลบ</Button>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-function CashflowForm({
-  action,
-  month,
-  fixedType,
-  includeDueDay = false
-}: {
-  action: (formData: FormData) => Promise<void>;
-  month: string;
-  fixedType?: BudgetItemType;
-  includeDueDay?: boolean;
-}) {
-  return (
-    <form action={action} className="grid gap-3 sm:grid-cols-2">
-      <input type="hidden" name="month" value={month} />
-      {fixedType ? <input type="hidden" name="type" value={fixedType} /> : (
-        <select name="type" defaultValue="EXPENSE" className="h-10 rounded-md border border-input bg-background px-3 text-sm">
-          <option value="INCOME">รายรับ</option>
-          <option value="EXPENSE">รายจ่าย</option>
-        </select>
-      )}
-      <Input name="name" placeholder="ชื่อรายการ" required />
-      <select
-        name="category"
-        defaultValue={fixedType === "INCOME" ? "SIDE_INCOME" : "OTHER"}
-        className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-      >
-        {cashflowCategoryOptions.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-      <Input name="amount" type="number" placeholder="จำนวนเงิน" required />
-      {includeDueDay ? <Input name="dueDay" type="number" min={1} max={31} placeholder="วันที่ประจำเดือน" /> : <Input name="dueDate" type="date" defaultValue={`${month}-25`} />}
-      <Button className="sm:col-span-2"><Plus className="h-4 w-4" />เพิ่มรายการ</Button>
-    </form>
   );
 }
 

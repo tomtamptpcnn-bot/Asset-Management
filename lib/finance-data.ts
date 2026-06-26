@@ -139,7 +139,8 @@ export async function getMonthlyBudget(month = getCurrentMonthKey()): Promise<{
         amount: toNumber(item.amount),
         dueDate: item.dueDate?.toISOString().slice(0, 10),
         isPaid: item.isPaid,
-        paidAt: item.paidAt?.toISOString().slice(0, 10)
+        paidAt: item.paidAt?.toISOString().slice(0, 10),
+        note: item.note ?? undefined
       }))
     };
   } catch {

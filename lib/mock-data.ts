@@ -73,6 +73,7 @@ export type MonthlyBudgetItem = {
   dueDate?: string;
   isPaid: boolean;
   paidAt?: string;
+  note?: string;
 };
 
 export function getTotals(assetRows: AssetItem[] = [], liabilityRows: Array<{ remainingBalance: number }> = []) {
