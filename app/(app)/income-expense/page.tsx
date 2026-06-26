@@ -1,4 +1,5 @@
 import { ArrowDown, ArrowUp, CalendarDays, ListPlus, Plus } from "lucide-react";
+import { DefaultCashflowManager } from "@/components/default-cashflow-manager";
 import { MonthlyCashflowChart } from "@/components/charts/finance-charts";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,7 +8,6 @@ import { Progress } from "@/components/ui/progress";
 import {
   createMonthlyItemsFromDefaults,
   deleteMonthlyBudgetItem,
-  saveDefaultCashflowItem,
   saveMonthlyBudgetItem,
   toggleMonthlyBudgetItemPaid
 } from "@/lib/finance-actions";
@@ -75,45 +75,16 @@ export default async function IncomeExpensePage({ searchParams }: { searchParams
         <MonthlyItemCard title="รายจ่ายเดือนนี้" type="EXPENSE" month={month} items={expenseItems} />
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
-        <Card>
-          <CardHeader>
-            <CardTitle>รายการ default</CardTitle>
-            <CardDescription>รายการประจำที่ใช้สร้างแผนของแต่ละเดือน</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <form action={createMonthlyItemsFromDefaults}>
-              <input type="hidden" name="month" value={month} />
-              <Button variant="outline"><ListPlus className="h-4 w-4" />สร้างรายการเดือนนี้จาก default</Button>
-            </form>
-            <div className="grid gap-3 md:grid-cols-2">
-              {defaults.map((item) => (
-                <div key={item.id} className="rounded-lg border p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate font-medium">{item.name}</p>
-                      <p className="text-sm text-muted-foreground">{item.category} · วันที่ {item.dueDay ?? "-"}</p>
-                    </div>
-                    <p className={item.type === "INCOME" ? "font-semibold text-emerald-600 dark:text-emerald-400" : "font-semibold text-red-600 dark:text-red-400"}>
-                      {formatCurrency(item.amount)}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      <Card>
+        <CardContent className="p-4">
+          <form action={createMonthlyItemsFromDefaults}>
+            <input type="hidden" name="month" value={month} />
+            <Button variant="outline"><ListPlus className="h-4 w-4" />สร้างรายการเดือนนี้จาก default</Button>
+          </form>
+        </CardContent>
+      </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>เพิ่มรายการ default</CardTitle>
-            <CardDescription>บันทึกไว้ใช้ซ้ำในเดือนถัดไป</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <CashflowForm action={saveDefaultCashflowItem} month={month} includeDueDay />
-          </CardContent>
-        </Card>
-      </section>
+      <DefaultCashflowManager defaults={defaults} month={month} />
 
       <Card>
         <CardHeader>

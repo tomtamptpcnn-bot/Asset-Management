@@ -1,18 +1,37 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDelete } from "@/components/ui/alert-dialog";
 import { Progress } from "@/components/ui/progress";
+import { useToast } from "@/components/toast-manager";
 import { deleteLiability } from "@/lib/finance-actions";
 import { type LiabilityItem } from "@/lib/finance-data";
 import { formatCurrency } from "@/lib/utils";
 
 export function LiabilityList({ initialRows }: { initialRows: LiabilityItem[] }) {
   const [rows, setRows] = useState(initialRows);
+  const router = useRouter();
+  const { showToast } = useToast();
+
+  async function handleDelete(id: string) {
+    const previousRows = rows;
+    setRows((current) => current.filter((row) => row.id !== id));
+    const result = await deleteLiability(id);
+
+    showToast({
+      tone: result.ok ? "success" : "error",
+      title: result.ok ? "ลบหนี้สินสำเร็จ" : "ลบหนี้สินไม่สำเร็จ",
+      description: result.ok ? undefined : result.message
+    });
+
+    if (!result.ok) setRows(previousRows);
+    router.refresh();
+  }
 
   return (
     <Card>
@@ -46,10 +65,7 @@ export function LiabilityList({ initialRows }: { initialRows: LiabilityItem[] })
                     <td className="py-3">
                       <div className="flex justify-end gap-2">
                         <Button asChild size="sm" variant="outline"><Link href={`/liabilities/${item.id}/edit`}><Pencil className="h-4 w-4" />แก้ไข</Link></Button>
-                        <ConfirmDelete onConfirm={() => {
-                          setRows(rows.filter((row) => row.id !== item.id));
-                          void deleteLiability(item.id);
-                        }} />
+                        <ConfirmDelete onConfirm={() => void handleDelete(item.id)} />
                       </div>
                     </td>
                   </tr>
@@ -71,10 +87,7 @@ export function LiabilityList({ initialRows }: { initialRows: LiabilityItem[] })
                 <div className="mt-3 flex justify-between text-sm"><span className="text-muted-foreground">ผ่อนต่อเดือน</span><span>{formatCurrency(item.monthlyPayment)}</span></div>
                 <div className="mt-4 flex gap-2">
                   <Button asChild size="sm" variant="outline" className="flex-1"><Link href={`/liabilities/${item.id}/edit`}>แก้ไข</Link></Button>
-                  <ConfirmDelete onConfirm={() => {
-                    setRows(rows.filter((row) => row.id !== item.id));
-                    void deleteLiability(item.id);
-                  }} />
+                  <ConfirmDelete onConfirm={() => void handleDelete(item.id)} />
                 </div>
               </div>
             );

@@ -46,7 +46,7 @@ export function ConfirmDelete({ onConfirm }: { onConfirm?: () => void }) {
         <AlertDialogHeader>
           <AlertDialogTitle className="text-base font-semibold">ยืนยันการลบรายการ</AlertDialogTitle>
           <AlertDialogDescription className="text-sm text-muted-foreground">
-            รายการนี้จะถูกนำออกจากหน้าจอทดสอบทันที ข้อมูลจริงควรลบผ่าน API พร้อม audit log
+            รายการนี้จะถูกลบออกจากระบบ และข้อมูลบนหน้าจอจะอัปเดตใหม่ทันที
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

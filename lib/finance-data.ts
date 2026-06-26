@@ -114,7 +114,8 @@ export async function getMonthlyBudget(month = getCurrentMonthKey()): Promise<{
         category: getCashflowCategoryLabel(item.category),
         amount: toNumber(item.amount),
         dueDay: item.dueDay ?? undefined,
-        isActive: item.isActive
+        isActive: item.isActive,
+        note: item.note ?? undefined
       })),
       items: items.map((item): MonthlyBudgetItem => ({
         id: item.id,

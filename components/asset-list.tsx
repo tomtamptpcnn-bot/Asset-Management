@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { FileText, Pencil, RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDelete } from "@/components/ui/alert-dialog";
 import { Progress } from "@/components/ui/progress";
+import { useToast } from "@/components/toast-manager";
 import { deleteAsset, refreshAssetMarketPrice } from "@/lib/finance-actions";
 import {
   getAssetAverageBuyPrice,
@@ -19,7 +21,24 @@ import { formatCurrency, getChangeClass } from "@/lib/utils";
 
 export function AssetList({ initialRows, limit }: { initialRows: AssetItem[]; limit?: number }) {
   const [rows, setRows] = useState<AssetItem[]>(initialRows);
+  const router = useRouter();
+  const { showToast } = useToast();
   const visibleRows = limit ? rows.slice(0, limit) : rows;
+
+  async function handleDelete(id: string) {
+    const previousRows = rows;
+    setRows((current) => current.filter((row) => row.id !== id));
+    const result = await deleteAsset(id);
+
+    showToast({
+      tone: result.ok ? "success" : "error",
+      title: result.ok ? "ลบทรัพย์สินสำเร็จ" : "ลบทรัพย์สินไม่สำเร็จ",
+      description: result.ok ? undefined : result.message
+    });
+
+    if (!result.ok) setRows(previousRows);
+    router.refresh();
+  }
 
   if (visibleRows.length === 0) {
     return (
@@ -83,10 +102,7 @@ export function AssetList({ initialRows, limit }: { initialRows: AssetItem[]; li
                       <div className="flex justify-end gap-2">
                         <RefreshPriceButton asset={item} />
                         <Button asChild size="sm" variant="outline"><Link href={`/assets/${item.id}/edit`}><Pencil className="h-4 w-4" />แก้ไข</Link></Button>
-                        <ConfirmDelete onConfirm={() => {
-                          setRows(rows.filter((row) => row.id !== item.id));
-                          void deleteAsset(item.id);
-                        }} />
+                        <ConfirmDelete onConfirm={() => void handleDelete(item.id)} />
                       </div>
                       <p className="mt-1 text-right text-xs text-muted-foreground">เฉลี่ย {formatCurrency(averageBuyPrice)} / หน่วย</p>
                     </td>
@@ -125,10 +141,7 @@ export function AssetList({ initialRows, limit }: { initialRows: AssetItem[]; li
                 <div className="mt-4 flex gap-2">
                   <RefreshPriceButton asset={item} mobile />
                   <Button asChild size="sm" variant="outline" className="flex-1"><Link href={`/assets/${item.id}/edit`}>แก้ไข</Link></Button>
-                  <ConfirmDelete onConfirm={() => {
-                    setRows(rows.filter((row) => row.id !== item.id));
-                    void deleteAsset(item.id);
-                  }} />
+                  <ConfirmDelete onConfirm={() => void handleDelete(item.id)} />
                 </div>
               </div>
             );

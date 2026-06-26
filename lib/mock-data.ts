@@ -59,6 +59,7 @@ export type DefaultCashflowItem = {
   amount: number;
   dueDay?: number;
   isActive: boolean;
+  note?: string;
 };
 
 export type MonthlyBudgetItem = {
