@@ -3,13 +3,18 @@
 import { AssetType, BudgetItemType, CashflowCategory, LiabilityStatus, LiabilityType } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getCashflowCategoryValue, getDemoUserId, hasDatabaseUrl, monthKeyToDate } from "@/lib/finance-data";
+import { getCashflowCategoryLabel, getCashflowCategoryValue, getDemoUserId, hasDatabaseUrl, monthKeyToDate } from "@/lib/finance-data";
 import { getMarketQuote } from "@/lib/market-prices";
 import { prisma } from "@/lib/prisma";
+import { type DefaultCashflowItem } from "@/lib/mock-data";
 
 type ActionResult = {
   ok: boolean;
   message: string;
+};
+
+type DefaultCashflowActionResult = ActionResult & {
+  item?: DefaultCashflowItem;
 };
 
 type AssetLotInput = {
@@ -229,6 +234,47 @@ export async function saveDefaultCashflowItem(formData: FormData) {
 
   revalidatePath("/income-expense");
   redirect(withToast(redirectPath, "success", id ? "แก้ไขรายการ default สำเร็จ" : "เพิ่มรายการ default สำเร็จ"));
+}
+
+export async function saveDefaultCashflowItemInline(formData: FormData): Promise<DefaultCashflowActionResult> {
+  const id = String(formData.get("id") ?? "");
+  if (!hasDatabaseUrl()) return { ok: false, message: "ยังไม่ได้ตั้งค่า DATABASE_URL" };
+
+  const userId = await getDemoUserId();
+  const data = {
+    userId,
+    name: String(formData.get("name") ?? ""),
+    type: String(formData.get("type") ?? "EXPENSE") as BudgetItemType,
+    category: getCashflowCategoryValue(String(formData.get("category") ?? "OTHER")) as CashflowCategory,
+    amount: numberOrZero(formData.get("amount")),
+    dueDay: numberOrNull(formData.get("dueDay")),
+    note: nullableString(formData.get("note")),
+    isActive: String(formData.get("isActive") ?? "true") === "true"
+  };
+
+  try {
+    const row = id
+      ? await prisma.defaultCashflowItem.update({ where: { id }, data })
+      : await prisma.defaultCashflowItem.create({ data });
+
+    revalidatePath("/income-expense");
+    return {
+      ok: true,
+      message: id ? "แก้ไขรายการ default สำเร็จ" : "เพิ่มรายการ default สำเร็จ",
+      item: {
+        id: row.id,
+        name: row.name,
+        type: row.type,
+        category: getCashflowCategoryLabel(row.category),
+        amount: Number(row.amount),
+        dueDay: row.dueDay ?? undefined,
+        isActive: row.isActive,
+        note: row.note ?? undefined
+      }
+    };
+  } catch (error) {
+    return { ok: false, message: getErrorMessage(error) };
+  }
 }
 
 export async function deleteDefaultCashflowItem(formData: FormData) {

@@ -2,7 +2,7 @@
 
 import { Pencil, Plus, Save, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -19,14 +19,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/toast-manager";
 import { cashflowCategoryOptions } from "@/lib/finance-data";
-import { deleteDefaultCashflowItemById, saveDefaultCashflowItem } from "@/lib/finance-actions";
+import { deleteDefaultCashflowItemById, saveDefaultCashflowItemInline } from "@/lib/finance-actions";
 import { type BudgetItemType, type DefaultCashflowItem } from "@/lib/mock-data";
 import { formatCurrency } from "@/lib/utils";
 
 export function DefaultCashflowManager({ defaults, month }: { defaults: DefaultCashflowItem[]; month: string }) {
   const [rows, setRows] = useState(defaults);
   const [editing, setEditing] = useState<DefaultCashflowItem | null>(null);
-  const formKey = editing?.id ?? "create";
+  const [formVersion, setFormVersion] = useState(0);
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+  const { showToast } = useToast();
+  const formKey = `${editing?.id ?? "create"}-${formVersion}`;
   const categoryValue = useMemo(() => getCategoryValue(editing?.category, editing?.type), [editing]);
 
   useEffect(() => {
@@ -36,6 +40,36 @@ export function DefaultCashflowManager({ defaults, month }: { defaults: DefaultC
   function handleDeleted(id: string) {
     setRows((current) => current.filter((item) => item.id !== id));
     if (editing?.id === id) setEditing(null);
+  }
+
+  function handleSave(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+
+    startTransition(async () => {
+      const result = await saveDefaultCashflowItemInline(formData);
+
+      showToast({
+        tone: result.ok ? "success" : "error",
+        title: result.ok ? result.message : "บันทึกรายการ default ไม่สำเร็จ",
+        description: result.ok ? undefined : result.message
+      });
+
+      if (result.ok && result.item) {
+        setRows((current) => {
+          const exists = current.some((item) => item.id === result.item?.id);
+          const nextRows = exists
+            ? current.map((item) => (item.id === result.item?.id ? result.item : item))
+            : [...current, result.item];
+          return nextRows.filter(Boolean) as DefaultCashflowItem[];
+        });
+        setEditing(null);
+        setFormVersion((current) => current + 1);
+      }
+
+      router.refresh();
+    });
   }
 
   return (
@@ -64,7 +98,7 @@ export function DefaultCashflowManager({ defaults, month }: { defaults: DefaultC
           <CardDescription>บันทึกไว้ใช้ซ้ำในเดือนถัดไป</CardDescription>
         </CardHeader>
         <CardContent>
-          <form key={formKey} action={saveDefaultCashflowItem} className="grid gap-3 sm:grid-cols-2">
+          <form key={formKey} onSubmit={handleSave} className="grid gap-3 sm:grid-cols-2">
             <input type="hidden" name="id" value={editing?.id ?? ""} />
             <input type="hidden" name="month" value={month} />
             <select
@@ -91,9 +125,9 @@ export function DefaultCashflowManager({ defaults, month }: { defaults: DefaultC
             <Input name="dueDay" type="number" min={1} max={31} placeholder="วันที่ประจำเดือน" defaultValue={editing?.dueDay ?? ""} />
             <Input name="note" placeholder="หมายเหตุ" defaultValue={editing?.note ?? ""} />
             <input type="hidden" name="isActive" value="true" />
-            <Button className="sm:col-span-2">
+            <Button className="sm:col-span-2" disabled={isPending}>
               {editing ? <Save className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-              {editing ? "บันทึกการแก้ไข" : "เพิ่มรายการ"}
+              {isPending ? "กำลังบันทึก..." : editing ? "บันทึกการแก้ไข" : "เพิ่มรายการ"}
             </Button>
             {editing ? (
               <Button type="button" variant="outline" className="sm:col-span-2" onClick={() => setEditing(null)}>
