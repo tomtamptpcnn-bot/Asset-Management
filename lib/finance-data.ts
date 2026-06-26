@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prisma, withPrismaRetry } from "@/lib/prisma";
 import { type AssetItem, type AssetLot, type DefaultCashflowItem, type MonthlyBudgetItem } from "@/lib/mock-data";
 
 export type LiabilityItem = {
@@ -19,22 +19,30 @@ export type LiabilityItem = {
 };
 
 const demoEmail = "demo@example.com";
+let demoUserIdPromise: Promise<string> | undefined;
 
 export function hasDatabaseUrl() {
   return Boolean(process.env.DATABASE_URL);
 }
 
 export async function getDemoUserId() {
-  const user = await prisma.user.upsert({
-    where: { email: demoEmail },
-    update: {},
-    create: {
-      email: demoEmail,
-      name: "Demo User"
-    },
-    select: { id: true }
+  demoUserIdPromise ??= withPrismaRetry(async () => {
+    const user = await prisma.user.upsert({
+      where: { email: demoEmail },
+      update: {},
+      create: {
+        email: demoEmail,
+        name: "Demo User"
+      },
+      select: { id: true }
+    });
+    return user.id;
+  }).catch((error) => {
+    demoUserIdPromise = undefined;
+    throw error;
   });
-  return user.id;
+
+  return demoUserIdPromise;
 }
 
 export async function getAssets(): Promise<AssetItem[]> {
@@ -42,11 +50,13 @@ export async function getAssets(): Promise<AssetItem[]> {
 
   try {
     const userId = await getDemoUserId();
-    const rows = await prisma.asset.findMany({
-      where: { userId },
-      include: { lots: { orderBy: { purchasedAt: "asc" } } },
-      orderBy: { updatedAt: "desc" }
-    });
+    const rows = await withPrismaRetry(() =>
+      prisma.asset.findMany({
+        where: { userId },
+        include: { lots: { orderBy: { purchasedAt: "asc" } } },
+        orderBy: { updatedAt: "desc" }
+      })
+    );
 
     return rows.map((asset) => ({
       id: asset.id,
@@ -94,16 +104,18 @@ export async function getMonthlyBudget(month = getCurrentMonthKey()): Promise<{
   try {
     const userId = await getDemoUserId();
     const monthDate = monthKeyToDate(month);
-    const [defaults, items] = await Promise.all([
-      prisma.defaultCashflowItem.findMany({
-        where: { userId, isActive: true },
-        orderBy: [{ type: "asc" }, { dueDay: "asc" }, { name: "asc" }]
-      }),
-      prisma.monthlyBudgetItem.findMany({
-        where: { userId, month: monthDate },
-        orderBy: [{ type: "asc" }, { dueDate: "asc" }, { name: "asc" }]
-      })
-    ]);
+    const [defaults, items] = await withPrismaRetry(() =>
+      Promise.all([
+        prisma.defaultCashflowItem.findMany({
+          where: { userId, isActive: true },
+          orderBy: [{ type: "asc" }, { dueDay: "asc" }, { name: "asc" }]
+        }),
+        prisma.monthlyBudgetItem.findMany({
+          where: { userId, month: monthDate },
+          orderBy: [{ type: "asc" }, { dueDate: "asc" }, { name: "asc" }]
+        })
+      ])
+    );
 
     return {
       month,
@@ -149,10 +161,12 @@ export async function getLiabilities(): Promise<LiabilityItem[]> {
 
   try {
     const userId = await getDemoUserId();
-    const rows = await prisma.liability.findMany({
-      where: { userId },
-      orderBy: { updatedAt: "desc" }
-    });
+    const rows = await withPrismaRetry(() =>
+      prisma.liability.findMany({
+        where: { userId },
+        orderBy: { updatedAt: "desc" }
+      })
+    );
 
     return rows.map((liability) => ({
       id: liability.id,
