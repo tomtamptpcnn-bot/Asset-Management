@@ -142,28 +142,104 @@ export function MonthlyBudgetManager({
           ) : null}
         </form>
 
-        <div className="space-y-3">
-          {rows.length ? (
-            rows.map((item) => (
-              <BudgetRow
-                key={item.id}
-                item={item}
-                month={month}
-                onDelete={() => void handleDelete(item.id)}
-                onEdit={() => setEditing(item)}
-                onToggle={() => void handleToggle(item)}
-              />
-            ))
-          ) : (
+        {rows.length ? (
+          <>
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full text-sm">
+                <thead className="text-left text-muted-foreground">
+                  <tr className="border-b">
+                    <th className="w-32 py-3 font-medium">สถานะ</th>
+                    <th className="min-w-44 py-3 font-medium">รายการ</th>
+                    <th className="w-32 py-3 font-medium">หมวดหมู่</th>
+                    <th className="w-28 py-3 font-medium">วันที่</th>
+                    <th className="w-32 py-3 text-right font-medium">จำนวนเงิน</th>
+                    <th className="min-w-40 py-3 font-medium">หมายเหตุ</th>
+                    <th className="w-40 py-3 text-right font-medium">จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((item) => (
+                    <BudgetTableRow
+                      key={item.id}
+                      item={item}
+                      month={month}
+                      onDelete={() => void handleDelete(item.id)}
+                      onEdit={() => setEditing(item)}
+                      onToggle={() => void handleToggle(item)}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="grid gap-3 md:hidden">
+              {rows.map((item) => (
+                <BudgetCardRow
+                  key={item.id}
+                  item={item}
+                  month={month}
+                  onDelete={() => void handleDelete(item.id)}
+                  onEdit={() => setEditing(item)}
+                  onToggle={() => void handleToggle(item)}
+                />
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="space-y-3">
             <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">ยังไม่มีรายการในเดือนนี้</div>
-          )}
-        </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
 }
 
-function BudgetRow({
+function BudgetTableRow({
+  item,
+  month,
+  onDelete,
+  onEdit,
+  onToggle
+}: {
+  item: MonthlyBudgetItem;
+  month: string;
+  onDelete: () => void;
+  onEdit: () => void;
+  onToggle: () => void;
+}) {
+  return (
+    <tr className="border-b last:border-0">
+      <td className="py-3">
+        <Button type="button" variant={item.isPaid ? "secondary" : "outline"} size="sm" className="h-8 w-28 justify-start" onClick={onToggle}>
+          <input readOnly checked={item.isPaid} type="checkbox" className="h-4 w-4 accent-current" />
+          {item.isPaid ? "แล้ว" : "ยัง"}
+        </Button>
+      </td>
+      <td className="max-w-56 py-3 font-medium">
+        <span className="block truncate">{item.name}</span>
+      </td>
+      <td className="py-3 text-muted-foreground">{item.category}</td>
+      <td className="py-3 text-muted-foreground">{item.dueDate ?? month}</td>
+      <td className={item.type === "INCOME" ? "py-3 text-right font-semibold text-emerald-600 dark:text-emerald-400" : "py-3 text-right font-semibold text-red-600 dark:text-red-400"}>
+        {formatCurrency(item.amount)}
+      </td>
+      <td className="max-w-48 py-3 text-muted-foreground">
+        <span className="block truncate">{item.note ?? "-"}</span>
+      </td>
+      <td className="py-3">
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={onEdit}>
+            <Pencil className="h-4 w-4" />
+            แก้ไข
+          </Button>
+          <Button type="button" variant="ghost" size="sm" onClick={onDelete}>ลบ</Button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function BudgetCardRow({
   item,
   month,
   onDelete,
