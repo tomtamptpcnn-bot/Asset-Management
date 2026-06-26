@@ -7,6 +7,8 @@ export const metadata: Metadata = {
   description: "บันทึกและวิเคราะห์ทรัพย์สิน หนี้สิน รายรับ รายจ่ายส่วนบุคคล"
 };
 
+export const preferredRegion = "sin1";
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="th" suppressHydrationWarning>
